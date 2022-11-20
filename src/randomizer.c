@@ -48,25 +48,48 @@ static inline void verbose(const char *fmt, ...) {
    putc('\n', stdout);
 }
 
-static bool should_skip_warp(uint16_t map_index, struct PWarpEvent *warp) {
+static bool should_skip_warp(const uint16_t map_index, const uint8_t warp_id, struct PWarpEvent *warp) {
    if (warp->warpId == WARP_ID_NONE || warp->warpId == WARP_ID_DYNAMIC || warp->warpId == WARP_ID_SECRET_BASE ||
       (warp->mapNum == MAP_NUM(DYNAMIC) && warp->mapGroup == MAP_GROUP(DYNAMIC)) || (warp->mapNum == MAP_NUM(UNDEFINED) && warp->mapGroup == MAP_GROUP(UNDEFINED)))
       return true;
 
-   const char *name = P_MAPPED_ROM.map_names[map_index];
-   switch (filter_policy_for_input(ARGS.filter,  P_MAPPED_ROM.map_names[map_index])) {
-      case ALL:
-      case OUT:   verbose("filter: OUT %s", name); return true;
-      case IN:    break;
-      case ALLOW: break;
+   {
+      const char *name = P_MAPPED_ROM.map_names[map_index];
+      switch (filter_policy_for_input(ARGS.filter,  P_MAPPED_ROM.map_names[map_index])) {
+         case ALL:
+         case IN:
+            verbose("filter:  IN %s[%hhu]", name, warp_id);
+            return true;
+         case OUT:
+            {
+               // TODO: ugly
+               struct PWarpEvent dst = pokemon_map_header_warps(&P_MAPPED_ROM.maps[map_index], NULL)[warp_id];
+               *warp = dst;
+               break;
+            }
+         case ALLOW:
+            break;
+      }
    }
 
-   const uint16_t dst_map_index = pokemon_map_index_from_group_and_id(warp->mapGroup, warp->mapNum);
-   switch (filter_policy_for_input(ARGS.filter, P_MAPPED_ROM.map_names[dst_map_index])) {
-      case ALL:
-      case IN:    verbose("filter:  IN %s", name); return true;
-      case OUT:   break;
-      case ALLOW: break;
+   {
+      const uint16_t dst_map_index = pokemon_map_index_from_group_and_id(warp->mapGroup, warp->mapNum);
+      const char *name = P_MAPPED_ROM.map_names[dst_map_index];
+      switch (filter_policy_for_input(ARGS.filter, name)) {
+         case ALL:
+         case OUT:
+            verbose("filter: OUT %s[%hhu]", name, warp_id);
+            return true;
+         case IN:
+            {
+               // TODO: ugly
+               struct PWarpEvent dst = pokemon_map_header_warps(&P_MAPPED_ROM.maps[dst_map_index], NULL)[warp->warpId];
+               *warp = dst;
+               break;
+            }
+         case ALLOW:
+            break;
+      }
    }
 
    return false;
@@ -78,7 +101,7 @@ static size_t iterate_warps(void (*cb)(const uint16_t map_index, const size_t wa
       uint8_t num_warps;
       struct PWarpEvent *warps = pokemon_map_header_warps(&P_MAPPED_ROM.maps[i], &num_warps);
       for (uint8_t k = 0; k < num_warps; ++k) {
-         if (should_skip_warp(i, &warps[k])) continue;
+         if (should_skip_warp(i, k, &warps[k])) continue;
          if (cb) cb(i, warp_index, k, &warps[k], uptr);
          ++warp_index;
       }
@@ -108,31 +131,27 @@ static size_t resolve_warp_links(struct ResolvedWarp *warps, size_t n, size_t *o
 
    *out_num_linked_warps = 0;
    for (size_t i = 0; n > 0 && i < n - 1; ++i) {
-      size_t resolved = 0, resolved_at = 0;
+      bool resolved = false;
       for (size_t k = i; k < n; ++k) {
          const uint16_t dst_map_index = pokemon_map_index_from_group_and_id(warps[k].data.mapGroup, warps[k].data.mapNum);
          if (dst_map_index != warps[i].meta.srcMapIndex || warps[k].data.warpId != warps[i].meta.srcWarpId) continue;
-         resolved_at = k;
-         ++resolved;
+         swap_resolved_warp(&warps[k], &warps[++i]);
+         *out_num_linked_warps += 2;
+         resolved = true;
          break;
       }
-
-      if (resolved == 1) {
-         swap_resolved_warp(&warps[resolved_at], &warps[++i]);
-         *out_num_linked_warps += 2;
-         continue;
-      } else {
+      if (!resolved) {
          const uint16_t dst_map_index = pokemon_map_index_from_group_and_id(warps[i].data.mapGroup, warps[i].data.mapNum);
          verbose("unresolved: %s[%02hhu] <=x %s[%02hhu]",
                P_MAPPED_ROM.map_names[warps[i].meta.srcMapIndex], warps[i].meta.srcWarpId,
                P_MAPPED_ROM.map_names[dst_map_index], warps[i].data.warpId);
+         if (n > 0) swap_resolved_warp(&warps[i], &warps[n - 1]);
+         --i, --n;
       }
-
-      if (n > 0) swap_resolved_warp(&warps[i], &warps[n - 1]);
-      --i, --n;
    }
 
-   if (!ARGS.resolved_only) n = orig_n;
+   if (!ARGS.resolved_only)
+      n = orig_n;
 
    if (orig_n != n) {
       warnx("found %zu warps from which %zu could not be resolved (use --verbose to show them)", orig_n, orig_n - n);
@@ -174,9 +193,9 @@ static void shuffle_resolved_warps(struct ResolvedWarp *warps, const size_t link
       }
    }
 
-   for (i = linked_n; n > 0 && i < n - 1; ++i) {
+   for (; i + 1 < n; ++i) {
       const size_t rnd = tinymt32_generate_uint32(prng);
-      const size_t r = i + (rnd % (n - i) + 1);
+      const size_t r = (rnd % (n - i - 1) + i + 1);
       swap_resolved_warp_data(&warps[i], &warps[r]);
    }
 }
@@ -315,7 +334,7 @@ int main(int argc, char * const argv[]) {
       size_t num_linked_warps;
       total_warps = resolve_warp_links(warps, total_warps, &num_linked_warps);
       shuffle_resolved_warps(warps, num_linked_warps, total_warps, &prng);
-      apply_resolved_warps(warps, num_linked_warps);
+      apply_resolved_warps(warps, total_warps);
       free(warps);
    }
 
@@ -331,7 +350,7 @@ int main(int argc, char * const argv[]) {
             if (!P_MAPPED_ROM.mons[i].info[t]) continue;
             struct PWildPokemonInfo *info = pokemon_load(P_MAPPED_ROM.mons[i].info[t]);
             struct PWildPokemon *wild = pokemon_load(info->wildPokemon);
-            for (int w = 0; w < MAX_WILD_MON_SLOTS; ++w) wild[w].species = random_species(&prng);
+            for (int w = 0; w < WILD_COUNT_FOR[t]; ++w) wild[w].species = random_species(&prng);
          }
       }
    }

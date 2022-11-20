@@ -18,7 +18,11 @@ static const uint8_t WARP_ID_NONE = -1;
 #define TRAINER_NAME_LENGTH 10
 #define MAX_MON_MOVES 4
 #define NUM_SPECIES 412
-#define MAX_WILD_MON_SLOTS 12
+
+#define LAND_WILD_COUNT 12
+#define WATER_WILD_COUNT 5
+#define ROCK_WILD_COUNT 5
+#define FISH_WILD_COUNT 10
 
 struct PMapHeader {
    uint32_t mapLayout;
@@ -64,6 +68,13 @@ struct PWildPokemon {
 struct PWildPokemonInfo {
    uint8_t encounterRate;
    uint32_t wildPokemon;
+};
+
+static uint8_t WILD_COUNT_FOR[] = {
+   LAND_WILD_COUNT,
+   WATER_WILD_COUNT,
+   ROCK_WILD_COUNT,
+   FISH_WILD_COUNT
 };
 
 struct PWildPokemonHeader {

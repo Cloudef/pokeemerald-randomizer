@@ -85,7 +85,7 @@ struct filter* filter_load_mem(void *buf, size_t size) {
 
 enum filter_policy filter_policy_for_input(struct filter *filter, const char *input) {
    for (size_t i = 0; i < filter->num_rules; ++i) {
-      int ret = regexec(&filter->rules[i].regex, input, 0, NULL, 0);
+      const int ret = regexec(&filter->rules[i].regex, input, 0, NULL, 0);
       if (!ret) {
          return filter->rules[i].policy;
       } else if (ret != REG_NOMATCH) {
