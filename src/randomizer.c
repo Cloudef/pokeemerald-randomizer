@@ -170,7 +170,7 @@ static void shuffle_resolved_warps(struct ResolvedWarp *warps, const size_t link
       }
    }
 
-   for (; n > 0 && i < n - 1; ++i) {
+   for (i = linked_n; n > 0 && i < n - 1; ++i) {
       const size_t rnd = tinymt32_generate_uint32(prng);
       const size_t r = i + (rnd % (n - i) + 1);
       swap_resolved_warp_data(&warps[i], &warps[r]);
