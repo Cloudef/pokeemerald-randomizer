@@ -24,6 +24,9 @@ static ptrdiff_t DEREF(ptrdiff_t addr) {
    return u32ptr;
 }
 
+void* pokemon_load(ptrdiff_t addr) { return LOAD(addr); }
+ptrdiff_t pokemon_deref(ptrdiff_t addr) { return DEREF(addr); }
+
 struct PMapHeader* pokemon_map_header_by_group_and_id(const uint8_t group, const uint8_t id) {
    return LOAD(DEREF(DEREF(ROM_MAP_GROUPS_ADDRESS + group * 4) + id * 4));
 }
@@ -88,7 +91,17 @@ void pokemon_map_rom(const char *path) {
       .maps = pokemon_map_header_by_group_and_id(0, 0),
       .map_names = ROM_MAP_NAMES,
       .map_count = sizeof(ROM_MAP_NAMES) / sizeof(*ROM_MAP_NAMES),
+      .mons = LOAD(ROM_WILD_MON_HEADERS_ADDRESS),
+      .trainers = LOAD(ROM_TRAINERS_ADDRESS),
+      .trainer_count = 855,
+      .starters = (ROM_STARTER_MON_ADDRESS ? LOAD(ROM_STARTER_MON_ADDRESS) : NULL),
    };
+
+   {
+      size_t i = 0;
+      for (; P_MAPPED_ROM.mons[i].mapGroup != MAP_GROUP(UNDEFINED) && P_MAPPED_ROM.mons[i].mapNum != MAP_NUM(UNDEFINED); ++i);
+      P_MAPPED_ROM.mon_count = i;
+   }
 }
 
 void pokemon_unmap_rom() {

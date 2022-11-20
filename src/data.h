@@ -2,6 +2,13 @@ static const char ORIGINAL_ROM_SHA1[] = "f3ae088181bf583e55daf962a92bb46f4f1d07b
 static const char PATCHED_ROM_SHA1[] = "10a1c3820cfd06027fd26446212b924d07d1355d";
 static const ptrdiff_t ROM_LOAD_ADDRESS = 0x08000000;
 static const ptrdiff_t ROM_MAP_GROUPS_ADDRESS = 0x08486514;
+static const ptrdiff_t ROM_WILD_MON_HEADERS_ADDRESS = 0x08552c7c;
+static const ptrdiff_t ROM_TRAINERS_ADDRESS = 0x0830ffcc;
+static const ptrdiff_t ROM_EVOLUTION_TABLE_ADDRESS = 0x083252b8;
+static const ptrdiff_t ROM_LEVEL_UP_LEARNSETS_ADDRESS = 0x08329318;
+static const ptrdiff_t ROM_BASE_STATS_ADDRESS = 0x08320368;
+static const ptrdiff_t ROM_TMHM_LEARNSETS_ADDRESS = 0x0831e834;
+static const ptrdiff_t ROM_STARTER_MON_ADDRESS = 0x085b1d2c;
 const char *ROM_MAP_NAMES[] = {
 "PetalburgCity",
 "SlateportCity",

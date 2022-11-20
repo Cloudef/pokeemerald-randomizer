@@ -40,8 +40,28 @@ objdump --syms "$HACK_ELF" > "$tmpdir"/syms
 load="0x$(objdump -h "$HACK_ELF" | grep -F '.text' | awk '{print $4}')"
 printf 'static const ptrdiff_t ROM_LOAD_ADDRESS = %s;\n' "$load" >> "$tmpdir"/data.h
 deref() { off="$1"; printf '%s' "0x$(xxd -s "$((off-load))" -l 4 -e "$HACK_ROM" | cut -d' ' -f2)"; }
-gMapGroups="0x$(grep "gMapGroups$" "$tmpdir"/syms | cut -d' ' -f1)"
+gMapGroups="0x$(grep " gMapGroups$" "$tmpdir"/syms | cut -d' ' -f1)"
 printf 'static const ptrdiff_t ROM_MAP_GROUPS_ADDRESS = %s;\n' "$gMapGroups" >> "$tmpdir"/data.h
+gWildMonHeaders="0x$(grep " gWildMonHeaders$" "$tmpdir"/syms | cut -d' ' -f1)"
+printf 'static const ptrdiff_t ROM_WILD_MON_HEADERS_ADDRESS = %s;\n' "$gWildMonHeaders" >> "$tmpdir"/data.h
+gTrainers="0x$(grep " gTrainers$" "$tmpdir"/syms | cut -d' ' -f1)"
+printf 'static const ptrdiff_t ROM_TRAINERS_ADDRESS = %s;\n' "$gTrainers" >> "$tmpdir"/data.h
+gEvolutionTable="0x$(grep " gEvolutionTable$" "$tmpdir"/syms | cut -d' ' -f1)"
+printf 'static const ptrdiff_t ROM_EVOLUTION_TABLE_ADDRESS = %s;\n' "$gEvolutionTable" >> "$tmpdir"/data.h
+gLevelUpLearnsets="0x$(grep " gLevelUpLearnsets$" "$tmpdir"/syms | cut -d' ' -f1)"
+printf 'static const ptrdiff_t ROM_LEVEL_UP_LEARNSETS_ADDRESS = %s;\n' "$gLevelUpLearnsets" >> "$tmpdir"/data.h
+gBaseStats="0x$(grep " gBaseStats$" "$tmpdir"/syms | cut -d' ' -f1)"
+printf 'static const ptrdiff_t ROM_BASE_STATS_ADDRESS = %s;\n' "$gBaseStats" >> "$tmpdir"/data.h
+gTMHMLearnsets="0x$(grep " gTMHMLearnsets$" "$tmpdir"/syms | cut -d' ' -f1)"
+printf 'static const ptrdiff_t ROM_TMHM_LEARNSETS_ADDRESS = %s;\n' "$gTMHMLearnsets" >> "$tmpdir"/data.h
+
+# This probably isn't going to be found from other ROMs unless made external as well
+sStarterMon="0x$(grep " sStarterMon$" "$tmpdir"/syms | cut -d' ' -f1)"
+if [[ "$sStarterMon" != 0x ]]; then
+   printf 'static const ptrdiff_t ROM_STARTER_MON_ADDRESS = %s;\n' "$sStarterMon" >> "$tmpdir"/data.h
+else
+   printf 'static const ptrdiff_t ROM_STARTER_MON_ADDRESS = %s;\n' "0x0" >> "$tmpdir"/data.h
+fi
 
 map_names_from_offset() {
    count=0
@@ -59,10 +79,19 @@ map_names_from_offset() {
    printf "   TotalMaps: %s\n" "$count" 1>&2
 }
 
-printf '  gMapGroups: %s\n' "$gMapGroups"
-printf ' *gMapGroups: %s\n' "$(deref "$gMapGroups")"
+if [[ "$sStarterMon" != 0x ]]; then
+printf '      sStarterMon: %s\n' "$sStarterMon"
+fi
+printf '   gTMHMLearnsets: %s\n' "$gTMHMLearnsets"
+printf '      gBaseStates: %s\n' "$gBaseStats"
+printf 'gLevelUpLearnsets: %s\n' "$gLevelUpLearnsets"
+printf '  gEvolutionTable: %s\n' "$gEvolutionTable"
+printf '        gTrainers: %s\n' "$gTrainers"
+printf '  gWildMonHeaders: %s\n' "$gWildMonHeaders"
+printf '       gMapGroups: %s\n' "$gMapGroups"
+printf '      *gMapGroups: %s\n' "$(deref "$gMapGroups")"
 first_map="$(deref "$(deref "$gMapGroups")")"
-printf '**gMapGroups: %s\n' "$first_map"
+printf '     **gMapGroups: %s\n' "$first_map"
 map_names_from_offset "$first_map" >> "$tmpdir"/data.h
 
 # create BPS patch from our customized rom

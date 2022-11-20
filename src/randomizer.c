@@ -16,11 +16,15 @@ static struct {
    bool linked_warps;
    bool resolved_only;
    bool use_warp_filter;
+   bool randomize_mons;
+   bool randomize_trainers;
    bool verbose;
 } ARGS = {
    .linked_warps = true,
    .resolved_only = true,
    .use_warp_filter = true,
+   .randomize_mons = false,
+   .randomize_trainers = false,
    .verbose = false,
 };
 
@@ -44,7 +48,7 @@ static inline void verbose(const char *fmt, ...) {
    putc('\n', stdout);
 }
 
-static bool should_skip_warp(size_t map_index, struct PWarpEvent *warp) {
+static bool should_skip_warp(uint16_t map_index, struct PWarpEvent *warp) {
    if (warp->warpId == WARP_ID_NONE || warp->warpId == WARP_ID_DYNAMIC || warp->warpId == WARP_ID_SECRET_BASE ||
       (warp->mapNum == MAP_NUM(DYNAMIC) && warp->mapGroup == MAP_GROUP(DYNAMIC)) || (warp->mapNum == MAP_NUM(UNDEFINED) && warp->mapGroup == MAP_GROUP(UNDEFINED)))
       return true;
@@ -68,7 +72,7 @@ static bool should_skip_warp(size_t map_index, struct PWarpEvent *warp) {
    return false;
 }
 
-static size_t iterate_warps(void (*cb)(const size_t map_index, const size_t warp_index, const uint8_t warp_id, struct PWarpEvent *warp, void *uptr), void *uptr) {
+static size_t iterate_warps(void (*cb)(const uint16_t map_index, const size_t warp_index, const uint8_t warp_id, struct PWarpEvent *warp, void *uptr), void *uptr) {
    size_t warp_index = 0;
    for (uint16_t i = 0; i < P_MAPPED_ROM.map_count; ++i) {
       uint8_t num_warps;
@@ -82,7 +86,7 @@ static size_t iterate_warps(void (*cb)(const size_t map_index, const size_t warp
    return warp_index;
 }
 
-static void collect_resolved_warps(const size_t map_index, const size_t warp_index, const uint8_t warp_id, struct PWarpEvent *warp, void *uptr) {
+static void collect_resolved_warps(const uint16_t map_index, const size_t warp_index, const uint8_t warp_id, struct PWarpEvent *warp, void *uptr) {
    struct ResolvedWarp *warps = uptr;
    warps[warp_index] = (struct ResolvedWarp){
       .meta.srcWarpId = warp_id,
@@ -190,8 +194,11 @@ static void apply_resolved_warps(const struct ResolvedWarp *warps, const size_t 
    }
 }
 
-static void
-usage(FILE *out, const char *name)
+static uint16_t random_species(tinymt32_t *prng) {
+   return 1 + (tinymt32_generate_uint32(prng) % (NUM_SPECIES - 2));
+}
+
+static void usage(FILE *out, const char *name)
 {
     char *base = strrchr(name, '/');
     fprintf(out, "usage: %s [options]\n", (base ? base + 1 : name));
@@ -203,6 +210,8 @@ usage(FILE *out, const char *name)
           " --unlinked-warps      entrance and exit may be different.\n"
           " --allow-unresolved    include unpaired warps (softlock likely).\n"
           " --no-filter           do not use the default warp blacklist.\n"
+          " --randomize-mons      randomize wild encounters.\n"
+          " --randomize-trainers  randomize trainer battles.\n"
           , out);
 
     exit((out == stderr ? EXIT_FAILURE : EXIT_SUCCESS));
@@ -211,14 +220,16 @@ usage(FILE *out, const char *name)
 int main(int argc, char * const argv[]) {
    {
       static struct option opts[] = {
-         { "help",             no_argument,       0,  'h'    },
-         { "verbose",          no_argument,       0,  'd'    },
-         { "seed",             required_argument, 0,  's'    },
-         { "filter",           required_argument, 0,  'f'    },
-         { "unlinked-warps",   no_argument,       0,  0x1000 },
-         { "allow-unresolved", no_argument,       0,  0x1001 },
-         { "no-filter",        no_argument,       0,  0x1002 },
-         { 0,                  0,                 0,  0      }
+         { "help",               no_argument,       0,  'h'    },
+         { "verbose",            no_argument,       0,  'd'    },
+         { "seed",               required_argument, 0,  's'    },
+         { "filter",             required_argument, 0,  'f'    },
+         { "unlinked-warps",     no_argument,       0,  0x1000 },
+         { "allow-unresolved",   no_argument,       0,  0x1001 },
+         { "no-filter",          no_argument,       0,  0x1002 },
+         { "randomize-mons",     no_argument,       0,  0x1003 },
+         { "randomize-trainers", no_argument,       0,  0x1004 },
+         { 0,                    0,                 0,  0      }
       };
 
       bool got_seed = false;
@@ -253,6 +264,12 @@ int main(int argc, char * const argv[]) {
             case 0x1002:
                ARGS.use_warp_filter = false;
                break;
+            case 0x1003:
+               ARGS.randomize_mons = true;
+               break;
+            case 0x1004:
+               ARGS.randomize_trainers = true;
+               break;
 
             case ':':
             case '?':
@@ -281,6 +298,8 @@ int main(int argc, char * const argv[]) {
    if (argc <= 1)
       errx(EXIT_FAILURE, "must provide a path to the rom");
 
+   tinymt32_t prng;
+   tinymt32_init(&prng, ARGS.seed);
    warnx("seed %u", ARGS.seed);
    pokemon_map_rom(argv[1]);
 
@@ -295,13 +314,26 @@ int main(int argc, char * const argv[]) {
 
       size_t num_linked_warps;
       total_warps = resolve_warp_links(warps, total_warps, &num_linked_warps);
-
-      tinymt32_t prng;
-      tinymt32_init(&prng, ARGS.seed);
       shuffle_resolved_warps(warps, num_linked_warps, total_warps, &prng);
-
       apply_resolved_warps(warps, num_linked_warps);
       free(warps);
+   }
+
+   if (ARGS.randomize_mons) {
+      warnx("randomizing mons ...");
+
+      if (P_MAPPED_ROM.starters) {
+         for (uint8_t i = 0; i < 3; ++i) P_MAPPED_ROM.starters->species[i] = random_species(&prng);
+      }
+
+      for (size_t i = 0; i < P_MAPPED_ROM.mon_count; ++i) {
+         for (uint8_t t = 0; t < INFO_COUNT; ++t) {
+            if (!P_MAPPED_ROM.mons[i].info[t]) continue;
+            struct PWildPokemonInfo *info = pokemon_load(P_MAPPED_ROM.mons[i].info[t]);
+            struct PWildPokemon *wild = pokemon_load(info->wildPokemon);
+            for (int w = 0; w < MAX_WILD_MON_SLOTS; ++w) wild[w].species = random_species(&prng);
+         }
+      }
    }
 
    {
