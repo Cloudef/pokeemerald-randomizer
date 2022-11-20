@@ -7,15 +7,20 @@
 
 #include "tinymt32.h"
 #include "pokemon.h"
+#include "filter.h"
+#include "blacklist.h"
 
 static struct {
+   struct filter *filter;
    uint32_t seed;
    bool linked_warps;
    bool resolved_only;
+   bool use_warp_filter;
    bool verbose;
 } ARGS = {
    .linked_warps = true,
    .resolved_only = true,
+   .use_warp_filter = true,
    .verbose = false,
 };
 
@@ -39,10 +44,28 @@ static inline void verbose(const char *fmt, ...) {
    putc('\n', stdout);
 }
 
-static bool should_skip_warp(struct PWarpEvent *warp) {
-   return warp->warpId == WARP_ID_NONE || warp->warpId == WARP_ID_DYNAMIC || warp->warpId == WARP_ID_SECRET_BASE ||
-         (warp->mapNum == MAP_NUM(DYNAMIC) && warp->mapGroup == MAP_GROUP(DYNAMIC)) ||
-         (warp->mapNum == MAP_NUM(UNDEFINED) && warp->mapGroup == MAP_GROUP(UNDEFINED));
+static bool should_skip_warp(size_t map_index, struct PWarpEvent *warp) {
+   if (warp->warpId == WARP_ID_NONE || warp->warpId == WARP_ID_DYNAMIC || warp->warpId == WARP_ID_SECRET_BASE ||
+      (warp->mapNum == MAP_NUM(DYNAMIC) && warp->mapGroup == MAP_GROUP(DYNAMIC)) || (warp->mapNum == MAP_NUM(UNDEFINED) && warp->mapGroup == MAP_GROUP(UNDEFINED)))
+      return true;
+
+   const char *name = P_MAPPED_ROM.map_names[map_index];
+   switch (filter_policy_for_input(ARGS.filter,  P_MAPPED_ROM.map_names[map_index])) {
+      case ALL:
+      case OUT:   verbose("filter: OUT %s", name); return true;
+      case IN:    break;
+      case ALLOW: break;
+   }
+
+   const uint16_t dst_map_index = pokemon_map_index_from_group_and_id(warp->mapGroup, warp->mapNum);
+   switch (filter_policy_for_input(ARGS.filter, P_MAPPED_ROM.map_names[dst_map_index])) {
+      case ALL:
+      case IN:    verbose("filter:  IN %s", name); return true;
+      case OUT:   break;
+      case ALLOW: break;
+   }
+
+   return false;
 }
 
 static size_t iterate_warps(void (*cb)(const size_t map_index, const size_t warp_index, const uint8_t warp_id, struct PWarpEvent *warp, void *uptr), void *uptr) {
@@ -51,7 +74,7 @@ static size_t iterate_warps(void (*cb)(const size_t map_index, const size_t warp
       uint8_t num_warps;
       struct PWarpEvent *warps = pokemon_map_header_warps(&P_MAPPED_ROM.maps[i], &num_warps);
       for (uint8_t k = 0; k < num_warps; ++k) {
-         if (should_skip_warp(&warps[k])) continue;
+         if (should_skip_warp(i, &warps[k])) continue;
          if (cb) cb(i, warp_index, k, &warps[k], uptr);
          ++warp_index;
       }
@@ -87,14 +110,13 @@ static size_t resolve_warp_links(struct ResolvedWarp *warps, size_t n, size_t *o
          if (dst_map_index != warps[i].meta.srcMapIndex || warps[k].data.warpId != warps[i].meta.srcWarpId) continue;
          resolved_at = k;
          ++resolved;
+         break;
       }
 
       if (resolved == 1) {
          swap_resolved_warp(&warps[resolved_at], &warps[++i]);
          *out_num_linked_warps += 2;
          continue;
-      } else if (resolved > 0) {
-         verbose("warning: %s[%02hhu] has %zu different connections", P_MAPPED_ROM.map_names[warps[i].meta.srcMapIndex], warps[i].meta.srcWarpId, resolved);
       } else {
          const uint16_t dst_map_index = pokemon_map_index_from_group_and_id(warps[i].data.mapGroup, warps[i].data.mapNum);
          verbose("unresolved: %s[%02hhu] <=x %s[%02hhu]",
@@ -177,8 +199,10 @@ usage(FILE *out, const char *name)
           " -h, --help            display this help and exit.\n"
           " -d, --verbose         verbose output.\n"
           " -s, --seed            specify seed manually.\n"
+          " -f, --filter          provide custom warp blacklist.\n"
           " --unlinked-warps      entrance and exit may be different.\n"
           " --allow-unresolved    include unpaired warps (softlock likely).\n"
+          " --no-filter           do not use the default warp blacklist.\n"
           , out);
 
     exit((out == stderr ? EXIT_FAILURE : EXIT_SUCCESS));
@@ -190,12 +214,15 @@ int main(int argc, char * const argv[]) {
          { "help",             no_argument,       0,  'h'    },
          { "verbose",          no_argument,       0,  'd'    },
          { "seed",             required_argument, 0,  's'    },
+         { "filter",           required_argument, 0,  'f'    },
          { "unlinked-warps",   no_argument,       0,  0x1000 },
          { "allow-unresolved", no_argument,       0,  0x1001 },
+         { "no-filter",        no_argument,       0,  0x1002 },
          { 0,                  0,                 0,  0      }
       };
 
       bool got_seed = false;
+      const char *filter_path = NULL;
       for (optind = 0;;) {
          int32_t opt;
          if ((opt = getopt_long(argc, argv, "hs:", opts, NULL)) < 0)
@@ -213,12 +240,18 @@ int main(int argc, char * const argv[]) {
                ARGS.seed = strtoul(optarg, NULL, 10);
                got_seed = true;
                break;
+            case 'f':
+               filter_path = optarg;
+               break;
 
             case 0x1000:
                ARGS.linked_warps = false;
                break;
             case 0x1001:
                ARGS.resolved_only = false;
+               break;
+            case 0x1002:
+               ARGS.use_warp_filter = false;
                break;
 
             case ':':
@@ -234,6 +267,14 @@ int main(int argc, char * const argv[]) {
       if (optind > 0) {
          argc -= (optind - 1);
          argv += (optind - 1);
+      }
+
+      if (ARGS.use_warp_filter) {
+         if (filter_path) {
+            ARGS.filter = filter_load(filter_path);
+         } else {
+            ARGS.filter = filter_load_mem(blacklist_default, blacklist_default_len);
+         }
       }
    }
 

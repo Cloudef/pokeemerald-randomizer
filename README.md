@@ -9,14 +9,16 @@ Randomizes warps, and offers some QoL features
 
 ## Usage
 
-```bash
+```
 usage: randomizer [options]
 Options
  -h, --help            display this help and exit.
  -d, --verbose         verbose output.
  -s, --seed            specify seed manually.
+ -f, --filter          provide custom warp blacklist.
  --unlinked-warps      entrance and exit may be different.
  --allow-unresolved    include unpaired warps (softlock likely).
+ --no-filter           do not use the default warp blacklist.
 ```
 
 Output is a ROM file prefixed with either generated or specified seed number.
@@ -25,7 +27,7 @@ Output is a ROM file prefixed with either generated or specified seed number.
 
 If you simply want a randomizer for the original Pokemon Emerald, with default custom features applied on it, then you do not need anything except `make` and a working C compiler.
 
-```bash
+```
 make
 ```
 
@@ -42,14 +44,14 @@ The `bootstrap-hack.bash` requires some dependencies installed: `objdump xxd awk
 
 If you build with nix (OSX, Linux) then you can just run `nix-shell` and you should have shell with all the dependencies required.
 
-```bash
+```
 nix-shell
 make
 ```
 
 Similarily you can build pokeemerald also with nix:
 
-```bash
+```
 cd pokeemerald
 nix-shell
 buildPhase

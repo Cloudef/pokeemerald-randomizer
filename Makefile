@@ -17,8 +17,11 @@ patched.sha1:
 src/data.h: patched.sha1 original.sha1
 	./bootstrap-hack.bash
 
-randomizer: src/pokemon.h src/bps.h src/data.h
-randomizer: src/randomizer.c src/pokemon.c src/teeny-sha1.c src/tinymt32.c src/bps.c
+src/blacklist.h: blacklist.default
+	xxd -i $< > $@
+
+randomizer: src/pokemon.h src/filter.h src/bps.h src/data.h src/blacklist.h
+randomizer: src/randomizer.c src/pokemon.c src/filter.c src/teeny-sha1.c src/tinymt32.c src/bps.c
 	$(LINK.c) $(filter %.c,$^) $(LDLIBS) -o $@
 
 clean:
