@@ -7,9 +7,9 @@ WARNINGS = -Wall -Wextra -Wpedantic -Wformat=2 -Wstrict-aliasing=3 -Wstrict-over
 	   -Wcast-align -Wpointer-arith -Wchar-subscripts -Warray-bounds=2 -Wno-unknown-warning-option
 
 VISIBILITY ?= -fvisibility=hidden
-override CFLAGS ?= -g -O2 $(WARNINGS) $(EXTRA_WARNINGS)
+override CFLAGS ?= -g -O2 $(WARNINGS) $(EXTRA_CFLAGS)
 override CFLAGS += -std=c99 $(VISIBILITY)
-override CPPFLAGS ?= -D_FORTIFY_SOURCE=2
+override CPPFLAGS ?= -D_FORTIFY_SOURCE=2 $(EXTRA_CPPFLAGS)
 override CPPFLAGS += -D_DEFAULT_SOURCE
 
 all: randomizer
