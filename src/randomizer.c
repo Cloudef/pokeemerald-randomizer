@@ -315,7 +315,7 @@ int main(int argc, char * const argv[]) {
    }
 
    if (argc <= 1)
-      errx(EXIT_FAILURE, "must provide a path to the rom");
+      usage(stderr, argv[0]);
 
    tinymt32_t prng;
    tinymt32_init(&prng, ARGS.seed);
