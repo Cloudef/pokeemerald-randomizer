@@ -224,6 +224,7 @@ static void usage(FILE *out, const char *name)
     fputs("Options\n"
           " -h, --help            display this help and exit.\n"
           " -d, --verbose         verbose output.\n"
+          " -o, --output          specify output path.\n"
           " -s, --seed            specify seed manually.\n"
           " -f, --filter          provide custom warp blacklist.\n"
           " --unlinked-warps      entrance and exit may be different.\n"
@@ -237,10 +238,12 @@ static void usage(FILE *out, const char *name)
 }
 
 int main(int argc, char * const argv[]) {
+   const char *output_path = NULL;
    {
       static struct option opts[] = {
          { "help",               no_argument,       0,  'h'    },
          { "verbose",            no_argument,       0,  'd'    },
+         { "output",             required_argument, 0,  'o'    },
          { "seed",               required_argument, 0,  's'    },
          { "filter",             required_argument, 0,  'f'    },
          { "unlinked-warps",     no_argument,       0,  0x1000 },
@@ -255,7 +258,7 @@ int main(int argc, char * const argv[]) {
       const char *filter_path = NULL;
       for (optind = 0;;) {
          int32_t opt;
-         if ((opt = getopt_long(argc, argv, "hs:", opts, NULL)) < 0)
+         if ((opt = getopt_long(argc, argv, "hds:o:f:", opts, NULL)) < 0)
             break;
 
          switch (opt) {
@@ -266,6 +269,9 @@ int main(int argc, char * const argv[]) {
                ARGS.verbose = true;
                break;
 
+            case 'o':
+               output_path = optarg;
+               break;
             case 's':
                ARGS.seed = strtoul(optarg, NULL, 10);
                got_seed = true;
@@ -357,26 +363,29 @@ int main(int argc, char * const argv[]) {
 
    {
       char out_name[1024];
-      char *slash = strrchr(argv[1], '/');
-      if (slash) {
-         const char *dir = argv[1];
-         *slash = 0;
-         const char *base = slash + 1;
-         snprintf(out_name, sizeof(out_name), "%s/%u-%s", dir, ARGS.seed, base);
-         *slash = '/';
-      } else {
-         snprintf(out_name, sizeof(out_name), "%u-%s", ARGS.seed, argv[1]);
+      if (!output_path) {
+         char *slash = strrchr(argv[1], '/');
+         if (slash) {
+            const char *dir = argv[1];
+            *slash = 0;
+            const char *base = slash + 1;
+            snprintf(out_name, sizeof(out_name), "%s/%u-%s", dir, ARGS.seed, base);
+            *slash = '/';
+         } else {
+            snprintf(out_name, sizeof(out_name), "%u-%s", ARGS.seed, argv[1]);
+         }
+         output_path = out_name;
       }
 
       FILE *f;
-      if (!(f = fopen(out_name, "wb")))
-         err(EXIT_FAILURE, "fopen(%s, wb)", out_name);
+      if (!(f = fopen(output_path, "wb")))
+         err(EXIT_FAILURE, "fopen(%s, wb)", output_path);
 
       fwrite(P_MAPPED_ROM.base, 1, P_MAPPED_ROM.size, f);
       fclose(f);
 
-      const bool prefix = (out_name[0] != '/' && strncmp("./", out_name, 2));
-      warnx("modified ROM at path %s%s", (prefix ? "./" : ""), out_name);
+      const bool prefix = (output_path[0] != '/' && strncmp("./", output_path, 2));
+      warnx("modified ROM at path %s%s", (prefix ? "./" : ""), output_path);
    }
 
    return EXIT_SUCCESS;
