@@ -1,8 +1,6 @@
-{ pkgs ? import <nixpkgs> {}, stdenv ? pkgs.stdenvNoCC }:
+{ pkgs ? import <nixpkgs> {} }:
 
-let
-  mkMiniShell = pkgs.mkShell.override { inherit stdenv; };
-in mkMiniShell {
+pkgs.mkShell {
   packages = with pkgs; [
     (import ./nix/flips.nix {})
     binutils-unwrapped-all-targets
