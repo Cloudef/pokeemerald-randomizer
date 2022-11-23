@@ -1,3 +1,6 @@
+PREFIX ?= /usr/local
+bindir ?= /bin
+
 MAKEFLAGS += --no-builtin-rules
 
 WARNINGS = -Wall -Wextra -Wpedantic -Wformat=2 -Wstrict-aliasing=3 -Wstrict-overflow=5 -Wstack-usage=12500 \
@@ -24,8 +27,12 @@ randomizer: src/pokemon.h src/pokemon_text.h src/filter.h src/bps.h src/data.h s
 randomizer: src/randomizer.c src/pokemon.c src/pokemon_text.c src/filter.c src/teeny-sha1.c src/tinymt32.c src/bps.c
 	$(LINK.c) $(filter %.c,$^) $(LDLIBS) -o $@
 
+install:
+	install -Dm755 randomizer $(DESTDIR)$(PREFIX)$(bindir)/pokeemerald-randomizer
+
 clean:
 	rm -f randomizer
 	rm -rf randomizer.dSYM
 
-.PHONY: clean
+.DELETE_ON_ERROR:
+.PHONY: all clean install
