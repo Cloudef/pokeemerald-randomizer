@@ -12,7 +12,13 @@ override CFLAGS += -std=c99 $(VISIBILITY)
 override CPPFLAGS ?= -D_FORTIFY_SOURCE=2 $(EXTRA_CPPFLAGS)
 override CPPFLAGS += -D_DEFAULT_SOURCE
 
+SRC = src/pokemon.h src/pokemon_text.h src/filter.h src/bps.h src/data.h src/blacklist.h \
+      src/randomizer.c src/pokemon.c src/pokemon_text.c src/filter.c src/teeny-sha1.c src/tinymt32.c src/bps.c
+
 all: randomizer
+
+%.a:
+	$(LINK.c) -c $(filter %.c,$^) -o $@
 
 patched.sha1:
 	./bootstrap-hack.bash sha1 > $@
@@ -23,12 +29,16 @@ src/data.h: patched.sha1 original.sha1
 src/blacklist.h: blacklist.default
 	xxd -i $< > $@
 
-randomizer: src/pokemon.h src/pokemon_text.h src/filter.h src/bps.h src/data.h src/blacklist.h
-randomizer: src/randomizer.c src/pokemon.c src/pokemon_text.c src/filter.c src/teeny-sha1.c src/tinymt32.c src/bps.c
-	$(LINK.c) $(filter %.c,$^) $(LDLIBS) -o $@
+randomizer: $(SRC)
+	$(LINK.c) $(filter %.c %.a,$^) $(LDLIBS) -o $@
+
+wasi-impl.a: src/wasi.c
+randomizer.wasm: $(SRC) wasi-impl.a
+	$(LINK.c) -D_WASI_EMULATED_MMAN $(filter %.c %.a,$^) $(LDLIBS) -lwasi-emulated-mman -o $@
 
 install:
-	install -Dm755 randomizer $(DESTDIR)$(PREFIX)$(bindir)/pokeemerald-randomizer
+	test -f randomizer && install -Dm755 randomizer $(DESTDIR)$(PREFIX)$(bindir)/pokeemerald-randomizer || test -f randomizer.wasm
+	test -f randomizer.wasm && install -Dm644 randomizer.wasm $(DESTDIR)$(PREFIX)$(bindir)/pokeemerald-randomizer.wasm || test -f randomizer
 
 clean:
 	rm -f randomizer
