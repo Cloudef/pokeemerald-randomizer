@@ -226,7 +226,11 @@ static void apply_resolved_warps(const struct ResolvedWarp *warps, const size_t 
 }
 
 static uint16_t random_species(tinymt32_t *prng) {
-   return 1 + (tinymt32_generate_uint32(prng) % (NUM_SPECIES - 2));
+   uint16_t rnd;
+   do {
+      rnd = 1 + (tinymt32_generate_uint32(prng) % (NUM_SPECIES - 2));
+   } while (rnd >= 252 && rnd <= 276); // 252 - 276 are invalid pokemon
+   return rnd;
 }
 
 static void usage(FILE *out, const char *name)
