@@ -10,6 +10,18 @@
 #include "filter.h"
 #include "blacklist.h"
 
+#ifdef __GLIBC__
+#include <sys/random.h>
+uint32_t get_random_u32(void) {
+   uint32_t v;
+   if (getrandom(&v, sizeof(v), 0) == -1)
+      err(EXIT_FAILURE, "getrandom");
+   return v;
+}
+#else
+uint32_t get_random_u32(void) { return arc4random(); }
+#endif
+
 static struct {
    struct filter *filter;
    uint32_t seed;
@@ -310,7 +322,7 @@ int main(int argc, char * const argv[]) {
          }
       }
 
-      if (!got_seed) ARGS.seed = arc4random();
+      if (!got_seed) ARGS.seed = get_random_u32();
 
       if (optind > 0) {
          argc -= (optind - 1);

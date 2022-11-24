@@ -70,6 +70,7 @@ struct PWildPokemonInfo {
    uint32_t wildPokemon;
 };
 
+__attribute__((unused))
 static uint8_t WILD_COUNT_FOR[] = {
    LAND_WILD_COUNT,
    WATER_WILD_COUNT,
@@ -77,15 +78,16 @@ static uint8_t WILD_COUNT_FOR[] = {
    FISH_WILD_COUNT
 };
 
+enum {
+   INFO_LAND,
+   INFO_WATER,
+   INFO_ROCK,
+   INFO_FISH,
+   INFO_COUNT
+};
+
 struct PWildPokemonHeader {
    uint8_t mapGroup, mapNum;
-   enum {
-      INFO_LAND,
-      INFO_WATER,
-      INFO_ROCK,
-      INFO_FISH,
-      INFO_COUNT,
-   };
    uint32_t info[4];
 };
 
