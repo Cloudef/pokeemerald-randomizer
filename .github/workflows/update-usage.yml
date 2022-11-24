@@ -1,0 +1,19 @@
+name: Update usage in README.md
+on: [push]
+
+jobs:
+  readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: cachix/install-nix-action@v18
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - run: nix-build
+      - name: Generate README.md
+        run: nix-shell -p envsubst --run 'USAGE="$(./result/bin/pokeemerald-randomizer --help)" envsubst -no-unset -no-empty -i README.md.in -o README.md'
+      - name: Update README.md if it changed
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git commit -a -m 'Update README.md' --quiet && git push origin master || true

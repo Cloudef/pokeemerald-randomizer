@@ -12,19 +12,7 @@ Try it online here: https://cloudef.github.io/pokeemerald-randomizer/
 ## Usage
 
 ```
-usage: pokeemerald-randomizer [options]
-Options
- -h, --help            display this help and exit.
- -d, --verbose         verbose output.
- -o, --output          specify output path.
- -s, --seed            specify seed manually.
- -f, --filter          provide custom warp blacklist.
- --unlinked-warps      entrance and exit may be different.
- --allow-unresolved    include unpaired warps (softlock likely).
- --no-filter           do not use the default warp blacklist.
- --randomize-mons      randomize wild encounters.
- --randomize-trainers  randomize trainer battles.
- --test-rng            print out some random numbers and exit.
+${USAGE}
 ```
 
 Output is a ROM file prefixed with either generated or specified seed number.
