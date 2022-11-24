@@ -372,7 +372,11 @@ int main(int argc, char * const argv[]) {
       warnx("randomizing mons ...");
 
       if (P_MAPPED_ROM.starters) {
-         for (uint8_t i = 0; i < 3; ++i) P_MAPPED_ROM.starters->species[i] = random_species(&prng);
+         for (uint8_t i = 0; i < 3; ++i) {
+            const uint16_t v = random_species(&prng);
+            warnx("starter[%hhu] = %hu", i, v);
+            P_MAPPED_ROM.starters->species[i] = v;
+         }
       }
 
       for (size_t i = 0; i < P_MAPPED_ROM.mon_count; ++i) {
