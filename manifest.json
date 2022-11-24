@@ -1,0 +1,25 @@
+{
+   "short_name": "PoKeRand",
+   "name": "pokeemerald-randomizer-web",
+   "icons": [
+      {
+         "src": "/android-chrome-192x192.png",
+         "type": "image/png",
+         "sizes": "192x192"
+      },
+      {
+         "src": "/favicon-96x96.png",
+         "type": "image/png",
+         "sizes": "96x96"
+      },
+      {
+         "type": "image/png",
+         "src": "/favicon-32x32.png",
+         "sizes": "32x32"
+      }
+   ],
+   "start_url": "/",
+   "background_color": "#231A2B",
+   "display": "standalone",
+   "theme_color": "#6A37BC"
+}
