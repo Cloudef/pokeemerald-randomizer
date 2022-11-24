@@ -2,6 +2,8 @@
 
 Randomizes warps, and offers some QoL features
 
+Try it online here: https://cloudef.github.io/pokeemerald-randomizer/
+
 ## QoL features
 
 - New game intro sequence is lot faster
