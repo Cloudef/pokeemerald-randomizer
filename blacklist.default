@@ -4,7 +4,7 @@ LittlerootTown_ProfessorBirchsLab ALL
 .*Harbor IN
 MossdeepCity_GameCorner.* IN
 .*MysteryEventsHouse.* IN
-EverGrandeCity_HallOfFame OUT
+EverGrandeCity_HallOfFame ALL
 ShoalCave.* IN
 IslandCave IN
 AncientTomb IN
@@ -18,8 +18,8 @@ SSTidal.* IN
 BattlePyramid* IN
 UnionRoom ALL
 SafariZone.* IN
-BattleFrontier_PokemonCenter_1F ALLOW
-BattleFrontier_Mart ALLOW
+BattleFrontier_PokemonCenter_1F OUT
+BattleFrontier_Mart OUT
 BattleFrontier.* ALL
 TrainerHill.* IN
 Route104_Prototype* ALL
