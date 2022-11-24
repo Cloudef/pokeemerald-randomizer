@@ -232,12 +232,14 @@ static void usage(FILE *out, const char *name)
           " --no-filter           do not use the default warp blacklist.\n"
           " --randomize-mons      randomize wild encounters.\n"
           " --randomize-trainers  randomize trainer battles.\n"
+          " --test-rng            print out some random numbers and exit.\n"
           , out);
 
     exit((out == stderr ? EXIT_FAILURE : EXIT_SUCCESS));
 }
 
 int main(int argc, char * const argv[]) {
+   bool test_rng = false;
    const char *output_path = NULL;
    {
       static struct option opts[] = {
@@ -251,6 +253,7 @@ int main(int argc, char * const argv[]) {
          { "no-filter",          no_argument,       0,  0x1002 },
          { "randomize-mons",     no_argument,       0,  0x1003 },
          { "randomize-trainers", no_argument,       0,  0x1004 },
+         { "test-rng",           no_argument,       0,  0x1005 },
          { 0,                    0,                 0,  0      }
       };
 
@@ -295,6 +298,9 @@ int main(int argc, char * const argv[]) {
             case 0x1004:
                ARGS.randomize_trainers = true;
                break;
+            case 0x1005:
+               test_rng = true;
+               break;
 
             case ':':
             case '?':
@@ -320,12 +326,18 @@ int main(int argc, char * const argv[]) {
       }
    }
 
-   if (argc <= 1)
+   if (!test_rng && argc <= 1)
       usage(stderr, argv[0]);
 
-   tinymt32_t prng;
+   tinymt32_t prng = {0};
    tinymt32_init(&prng, ARGS.seed);
    warnx("seed %u", ARGS.seed);
+
+   if (test_rng) {
+      for (uint8_t i = 0; i < 32; ++i) printf("%u\n", tinymt32_generate_uint32(&prng));
+      exit(EXIT_SUCCESS);
+   }
+
    pokemon_map_rom(argv[1]);
 
    {
